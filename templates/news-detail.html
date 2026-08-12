@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{pageTitle}} | Tether Light</title>
+<meta name="description" content="{{ogDescription}}">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="{{ogTitle}}">
+<meta property="og:description" content="{{ogDescription}}">
+<meta property="og:image" content="{{ogImage}}">
+<meta property="og:url" content="{{ogUrl}}">
+<meta property="og:site_name" content="Tether Light">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Inter+Tight:wght@300;400;500;600;700;800&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+
+<script type="application/ld+json">
+{{jsonLd}}
+</script>
+</head>
+<body>
+
+<header class="header header--solid" id="header">
+  <div class="container header__inner">
+    <a href="../index.html#top" class="logo">
+      <img src="../images/logo-icon-white.png" alt="" class="logo__mark logo__mark--white" aria-hidden="true">
+      <img src="../images/logo-icon-blue.png" alt="" class="logo__mark logo__mark--blue" aria-hidden="true">
+      <img src="../images/logo-text-white.png" alt="Tether Light" class="logo__text-img logo__text-img--white">
+      <img src="../images/logo-text-blue.png" alt="Tether Light" class="logo__text-img logo__text-img--blue">
+    </a>
+
+    <nav class="nav" id="nav">
+      <ul class="nav__list">
+        <li><a href="../index.html#business" class="nav__link">事業内容</a></li>
+        <li><a href="../index.html#news" class="nav__link">ニュース</a></li>
+        <li><a href="../index.html#company" class="nav__link">会社概要</a></li>
+        <li><a href="../contact.html" class="nav__link nav__link--cta">お問い合わせ</a></li>
+      </ul>
+    </nav>
+
+    <button class="nav-toggle" id="navToggle" aria-label="メニューを開く" aria-expanded="false" aria-controls="nav">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main class="article">
+  <div class="container article__inner">
+    <a href="../index.html#news" class="article__back">← ニュース一覧へ</a>
+
+    <div class="news-item__meta" style="margin-bottom: 16px;">
+      <span class="news-item__category">{{category}}</span>
+      <span class="article__date" style="margin-bottom: 0;">{{dateFormatted}}</span>
+    </div>
+
+    <h1 class="article__title">{{title}}</h1>
+
+{{thumbnailBlock}}
+
+    <div class="article__body">
+{{bodyHtml}}
+    </div>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container footer__inner">
+    <a href="../index.html#top" class="logo logo--footer">
+      <img src="../images/logo-icon-blue.png" alt="" class="logo__mark" aria-hidden="true">
+      <img src="../images/logo-text-blue.png" alt="Tether Light" class="logo__text-img">
+    </a>
+
+    <nav class="footer__nav">
+      <ul>
+        <li><a href="../index.html#business">事業内容</a></li>
+        <li><a href="../index.html#news">ニュース</a></li>
+        <li><a href="../index.html#company">会社概要</a></li>
+        <li><a href="../contact.html">お問い合わせ</a></li>
+      </ul>
+    </nav>
+  </div>
+  <p class="footer__copy">&copy; 2026 Tether Light Inc. All Rights Reserved.</p>
+</footer>
+
+<script src="../js/script.js"></script>
+</body>
+</html>

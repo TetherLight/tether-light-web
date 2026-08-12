@@ -1,0 +1,22 @@
+# 環境変数・APIキー
+.env
+.env.*
+*.env
+secrets.json
+*credentials*.json
+
+# OS生成ファイル
+.DS_Store
+Thumbs.db
+
+# 依存パッケージ（ビルドスクリプトはNode標準機能のみで動作し、通常は不要）
+node_modules/
+
+# ビルド出力（GitHub Actionsが実行時に生成する。リポジトリにはコミットしない）
+dist/
+
+# 写真整理用の作業フォルダ（Lightroomカタログ・RAW元データ。Webサイトのソースではない）
+/画像/
+
+# エディタ/ツールのローカル設定
+.claude/

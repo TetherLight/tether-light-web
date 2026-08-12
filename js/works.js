@@ -8,11 +8,13 @@ document.addEventListener("DOMContentLoaded", () => {
 // ============================================
 function initWorksList() {
   const grid = document.getElementById("worksGrid");
-  const tabsWrap = document.getElementById("worksTabs");
-  if (!grid || !tabsWrap) return; // このページには一覧が無い
+  if (!grid) return; // このページには一覧が無い
 
+  // タブ（カテゴリが2件以上のときだけビルド時に出力される）が無い場合は
+  // 常に「すべて」表示として振る舞う。
+  const tabsWrap = document.getElementById("worksTabs");
   const cards = Array.from(grid.querySelectorAll(".work-card"));
-  const tabs = Array.from(tabsWrap.querySelectorAll(".works-tabs__item"));
+  const tabs = tabsWrap ? Array.from(tabsWrap.querySelectorAll(".works-tabs__item")) : [];
   const emptyMessage = document.getElementById("worksEmpty");
   const countLabel = document.getElementById("worksCount");
   const loadMoreBtn = document.getElementById("worksLoadMore");

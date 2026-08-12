@@ -52,7 +52,7 @@ function renderNewsItem(article, linkPrefix, eager) {
           <div class="news-item__content">
             <div class="news-item__meta">
               <span class="news-item__category">${escapeHtml(article.category || "")}</span>
-              <span class="news-item__date">${formatDate(article.publishedDate)}</span>
+              <span class="news-item__date">${formatDate(article.publishDate)}</span>
             </div>
             <span class="news-item__title">${escapeHtml(article.title)}</span>
           </div>
@@ -119,8 +119,8 @@ async function buildDetailPages(articles, template) {
       "@type": "NewsArticle",
       headline: article.title,
       image: [ogImage],
-      datePublished: article.publishedDate,
-      dateModified: article.updatedAt || article.publishedDate,
+      datePublished: article.publishDate,
+      dateModified: article.updatedAt || article.publishDate,
       author: { "@type": "Organization", name: "Tether Light" },
       publisher: {
         "@type": "Organization",
@@ -134,8 +134,8 @@ async function buildDetailPages(articles, template) {
       pageTitle: article.title,
       title: escapeHtml(article.title),
       category: escapeHtml(article.category || ""),
-      dateFormatted: formatDate(article.publishedDate),
-      dateISO: article.publishedDate,
+      dateFormatted: formatDate(article.publishDate),
+      dateISO: article.publishDate,
       thumbnailBlock,
       bodyHtml: article.body || "",
       ogTitle: escapeHtml(article.title),
@@ -179,7 +179,7 @@ export async function buildNews() {
   await prepareDist();
 
   console.log("[build-news] microCMSから記事を取得しています…");
-  const articles = await fetchAllContents("news", { orders: "-publishedDate" });
+  const articles = await fetchAllContents("news", { orders: "-publishDate" });
   console.log(`[build-news] ${articles.length}件の記事を取得しました。`);
 
   const listTemplate = await readFile(path.join(ROOT, "templates", "news-list.html"), "utf-8");

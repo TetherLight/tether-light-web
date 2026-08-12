@@ -3,12 +3,17 @@
 // 以下を静的HTMLとして生成する。
 //   - dist/works/{id}.html   … 案件詳細ページ
 //   - dist/works/index.html  … 実績一覧（カテゴリタブ・全案件データを埋め込み）
-//   - dist/index.html の事業内容セクション … servicesの内容を差し込む
+//   - dist/index.html        … 事業内容セクションの画像・リンク、ヘッダー/フッターの
+//                               「実績」導線を、実データの有無に応じて差し込む
+//
+// 事業内容セクションのタイトル・説明文・タグは静的HTML（index.html）が正のデータとして
+// 残る。microCMSの services に存在する事業だけ、画像スライドショーと「実績を見る」リンクを
+// 動的に差し込み、存在しない事業は既存のHTML表示のまま変更しない。
 //
 // このスクリプトは dist/ フォルダが既に存在すること（build-news.mjs が先に実行され、
 // 静的アセットのコピーが済んでいること）を前提にしている。dist/ の作り直しは行わない。
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,16 +21,14 @@ import { fetchAllContents } from "./lib/microcms.mjs";
 import { render } from "./lib/render.mjs";
 import { escapeHtml, excerpt } from "./lib/html.mjs";
 import { cropImage, resizeImage, youTubeEmbedUrl } from "./lib/image.mjs";
+import { replaceMarker, replaceKeyedMarkers } from "./lib/markers.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const DIST = path.join(ROOT, "dist");
-const SERVICES_START = "<!-- BUILD:SERVICES:START -->";
-const SERVICES_END = "<!-- BUILD:SERVICES:END -->";
-
-// ---- 事業内容セクション（トップページ）----
-
 const SLIDESHOW_MAX_PHOTOS = 6;
+
+// ---- 事業内容セクション（トップページ）の差し込み ----
 
 // Fisher-Yatesシャッフル。ビルドごとに並び順をランダム化する。
 function shuffle(array) {
@@ -37,76 +40,88 @@ function shuffle(array) {
   return result;
 }
 
-function renderVisualContent(service, index, worksForService) {
+function renderSlidesInner(worksForService) {
   const photos = shuffle(worksForService.filter((w) => w.thumbnail)).slice(0, SLIDESHOW_MAX_PHOTOS);
+  if (photos.length === 0) return null;
 
-  if (photos.length >= 2) {
-    const slides = photos
-      .map((w, i) => {
-        const thumb = cropImage(w.thumbnail, 800, 600);
-        return `              <img src="${thumb}" alt="" class="business-item__slide${i === 0 ? " is-active" : ""}" ${i === 0 ? "" : 'loading="lazy"'}>`;
-      })
-      .join("\n");
-    return `            <div class="business-item__visual business-item__visual--slideshow" aria-hidden="true">
-${slides}
-            </div>`;
-  }
-
-  const visualModifier = index % 2 === 0 ? "business-item__visual--shooting" : "business-item__visual--media";
-  return `            <div class="${["business-item__visual", visualModifier].join(" ")}" aria-hidden="true">
-              <span class="business-item__number">${escapeHtml(String(service.number ?? index + 1))}</span>
-            </div>`;
+  return photos
+    .map((w, i) => {
+      const thumb = cropImage(w.thumbnail, 800, 600);
+      return `              <img src="${thumb}" alt="" class="business-item__slide${i === 0 ? " is-active" : ""}" ${i === 0 ? "" : 'loading="lazy"'}>`;
+    })
+    .join("\n");
 }
 
-function renderServiceBlock(service, index, worksForService) {
-  const isReverse = index % 2 === 1;
-  const tags = Array.isArray(service.tags) ? service.tags : [];
+async function patchServiceVisuals(html, services, works) {
+  return replaceKeyedMarkers(html, "SERVICE_VISUAL", (title, originalInner) => {
+    const service = services.find((s) => s.title.trim() === title);
+    if (!service) return originalInner; // 該当サービスが無ければ既存HTMLのまま
 
-  return `        <article class="business-item${isReverse ? " business-item--reverse" : ""}" data-animate>
-          <div class="business-item__media">
-${renderVisualContent(service, index, worksForService)}
-          </div>
-          <div class="business-item__body">
-            <span class="business-item__no">SERVICE ${String(index + 1).padStart(2, "0")}</span>
-            <h3 class="business-item__title">${escapeHtml(service.title)}</h3>
-            <p class="business-item__desc">
-              ${escapeHtml(service.description || "")}
-            </p>
-            <ul class="business-item__tags">
-${tags.map((tag) => `              <li>${escapeHtml(tag)}</li>`).join("\n")}
-            </ul>
-            <a href="works/index.html?service=${service.id}" class="business-item__cta">この事業の実績を見る<span class="btn__arrow">→</span></a>
-          </div>
-        </article>`;
+    const worksForService = works.filter((w) => w.service && w.service.id === service.id);
+    const slides = renderSlidesInner(worksForService);
+    return slides === null ? originalInner : `\n${slides}\n              `;
+  });
+}
+
+async function patchServiceLinks(html, services) {
+  return replaceKeyedMarkers(html, "SERVICE_LINK", (title) => {
+    const service = services.find((s) => s.title.trim() === title);
+    if (!service) return ""; // 該当サービスが無ければリンクを出さない
+    return `<a href="works/index.html?service=${service.id}" class="business-item__cta">この事業の実績を見る<span class="btn__arrow">→</span></a>`;
+  });
+}
+
+// works が0件なら「実績」ナビリンクのマーカーを空にする。
+// 1件以上ある場合は、テンプレート/index.htmlに書かれている導線をそのまま残す
+// （replaceMarker を呼ばない = マーカー間の内容はそのまま保持される）。
+function patchWorksNav(html, works) {
+  if (works.length === 0) {
+    html = replaceMarker(html, "WORKS_NAV_HEADER", "");
+    html = replaceMarker(html, "WORKS_NAV_FOOTER", "");
+  }
+  return html;
 }
 
 async function patchTopPage(services, works) {
   const indexPath = path.join(DIST, "index.html");
-  const html = await readFile(indexPath, "utf-8");
+  let html = await readFile(indexPath, "utf-8");
 
-  const startIdx = html.indexOf(SERVICES_START);
-  const endIdx = html.indexOf(SERVICES_END);
-  if (startIdx === -1 || endIdx === -1) {
-    throw new Error("index.html に Services の差し込みマーカーが見つかりません。");
+  html = await patchServiceVisuals(html, services, works);
+  html = await patchServiceLinks(html, services);
+
+  await writeFile(indexPath, html, "utf-8");
+}
+
+// dist/ 配下の再帰的な .html ファイル一覧を返す。
+async function listHtmlFiles(dir) {
+  let entries;
+  try {
+    entries = await readdir(dir, { recursive: true, withFileTypes: true });
+  } catch {
+    return []; // フォルダが無ければ対象なし
   }
+  return entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".html"))
+    .map((entry) => path.join(entry.parentPath ?? entry.path, entry.name));
+}
 
-  const blocksHtml = services
-    .map((s, i) => {
-      const worksForService = works.filter((w) => w.service && w.service.id === s.id);
-      return renderServiceBlock(s, i, worksForService);
-    })
-    .join("\n\n");
+// トップページ・ニュース関連ページ・実績関連ページすべてに、
+// works の有無に応じた「実績」ナビの出し分けを適用する。
+// サイト全体でヘッダー/フッターのナビ表示を統一するため。
+async function patchWorksNavEverywhere(works) {
+  const targets = [
+    path.join(DIST, "index.html"),
+    ...(await listHtmlFiles(path.join(DIST, "news"))),
+    ...(await listHtmlFiles(path.join(DIST, "works"))),
+  ];
 
-  const patched =
-    html.slice(0, startIdx) +
-    SERVICES_START +
-    "\n" +
-    blocksHtml +
-    "\n\n" +
-    SERVICES_END +
-    html.slice(endIdx + SERVICES_END.length);
-
-  await writeFile(indexPath, patched, "utf-8");
+  for (const filePath of targets) {
+    const html = await readFile(filePath, "utf-8");
+    const patched = patchWorksNav(html, works);
+    if (patched !== html) {
+      await writeFile(filePath, patched, "utf-8");
+    }
+  }
 }
 
 // ---- 実績一覧ページ ----
@@ -115,31 +130,45 @@ function renderTab(id, label, isActive) {
   return `      <button type="button" class="works-tabs__item${isActive ? " is-active" : ""}" data-service="${id}">${escapeHtml(label)}</button>`;
 }
 
-function renderWorkCard(work, serviceMap, eager) {
+function renderTabsBlock(services) {
+  if (services.length < 2) return ""; // カテゴリが1つ以下ならタブ自体を出さない
+
+  const tabsHtml = [
+    renderTab("all", "すべて", true),
+    ...services.map((s) => renderTab(s.id, s.title, false)),
+  ].join("\n");
+
+  return `    <div class="works-tabs" id="worksTabs" data-animate>
+${tabsHtml}
+    </div>`;
+}
+
+// カードのメタ欄も、値のある項目だけを出力する（空の span で余白が空くのを防ぐ）。
+function renderCardMeta(work, indent) {
+  const spans = [];
+  if (work.client) spans.push(`<span>${escapeHtml(work.client)}</span>`);
+  if (work.year) spans.push(`<span>${escapeHtml(String(work.year))}</span>`);
+  if (spans.length === 0) return "";
+  return `\n${indent}<div class="work-card__meta">\n${spans.map((s) => `${indent}  ${s}`).join("\n")}\n${indent}</div>`;
+}
+
+function renderWorkCard(work, eager) {
   const thumb = cropImage(work.thumbnail, 800, 600) || "../images/logo-icon-blue.png";
   const serviceId = work.service && work.service.id ? work.service.id : "";
   return `      <a href="${work.id}.html" class="work-card" data-service="${serviceId}" data-order="${work.order ?? 0}">
         <div class="work-card__thumb-wrap">
           <img src="${thumb}" alt="${escapeHtml(work.title)}" class="work-card__thumb" width="800" height="600" ${eager ? "" : 'loading="lazy"'}>
         </div>
-        <p class="work-card__title">${escapeHtml(work.title)}</p>
-        <div class="work-card__meta">
-          <span>${escapeHtml(work.client || "")}</span>
-          <span>${escapeHtml(String(work.year || ""))}</span>
-        </div>
+        <p class="work-card__title">${escapeHtml(work.title)}</p>${renderCardMeta(work, "        ")}
       </a>`;
 }
 
 async function buildWorksList(services, works) {
-  const tabsHtml = [
-    renderTab("all", "すべて", true),
-    ...services.map((s) => renderTab(s.id, s.title, false)),
-  ].join("\n");
-
-  const cardsHtml = works.map((w, i) => renderWorkCard(w, null, i === 0)).join("\n");
+  const tabsBlock = renderTabsBlock(services);
+  const cardsHtml = works.map((w, i) => renderWorkCard(w, i === 0)).join("\n");
 
   const template = await readFile(path.join(ROOT, "templates", "works-list.html"), "utf-8");
-  const html = render(template, { tabsHtml, cardsHtml });
+  const html = render(template, { tabsBlock, cardsHtml });
 
   await mkdir(path.join(DIST, "works"), { recursive: true });
   await writeFile(path.join(DIST, "works", "index.html"), html, "utf-8");
@@ -167,6 +196,38 @@ function renderGalleryItem(item, index) {
       </figure>`;
 }
 
+// 値が入っている項目だけを span として出力する。
+// 全項目が空ならメタ情報の枠自体を出さない。
+function renderMetaBlock({ categoryLabel, client, year }) {
+  const spans = [];
+  if (categoryLabel) spans.push(`      <span class="work-header__category">${escapeHtml(categoryLabel)}</span>`);
+  if (client) spans.push(`      <span>${escapeHtml(client)}</span>`);
+  if (year) spans.push(`      <span>${escapeHtml(String(year))}年</span>`);
+  if (spans.length === 0) return "";
+  return `    <div class="work-header__meta">
+${spans.join("\n")}
+    </div>`;
+}
+
+function renderDescriptionBlock(description) {
+  if (!description) return "";
+  return `    <div class="work-description">${escapeHtml(description).replace(/\n/g, "<br>")}</div>`;
+}
+
+function renderGalleryBlock(galleryHtml) {
+  if (!galleryHtml) return "";
+  return `    <div class="work-gallery" id="workGallery">
+${galleryHtml}
+    </div>`;
+}
+
+function renderPagerBlock(prevLink, nextLink) {
+  if (!prevLink && !nextLink) return "";
+  return `    <div class="work-pager">
+${[prevLink, nextLink].filter(Boolean).join("\n")}
+    </div>`;
+}
+
 function renderVideoBlock(videoUrl) {
   const embedUrl = youTubeEmbedUrl(videoUrl);
   if (!embedUrl) return "";
@@ -184,11 +245,7 @@ function renderRelated(relatedWorks) {
           <div class="work-card__thumb-wrap">
             <img src="${thumb}" alt="${escapeHtml(w.title)}" class="work-card__thumb" width="600" height="450" loading="lazy">
           </div>
-          <p class="work-card__title">${escapeHtml(w.title)}</p>
-          <div class="work-card__meta">
-            <span>${escapeHtml(w.client || "")}</span>
-            <span>${escapeHtml(String(w.year || ""))}</span>
-          </div>
+          <p class="work-card__title">${escapeHtml(w.title)}</p>${renderCardMeta(w, "          ")}
         </a>`;
     })
     .join("\n");
@@ -238,19 +295,19 @@ async function buildWorksDetail(works, serviceMap, template) {
     const ogImageObj = resizeImage(work.thumbnail, 1200);
     const ogImage = ogImageObj ? ogImageObj.url : "";
 
+    const prevLink = renderPagerLink(prevWork, "前の案件", "work-pager__link--prev");
+    const nextLink = renderPagerLink(nextWork, "次の案件", "work-pager__link--next");
+
     const html = render(template, {
       pageTitle: work.title,
       title: escapeHtml(work.title),
-      client: escapeHtml(work.client || ""),
-      year: escapeHtml(String(work.year || "")),
       serviceId: sid === "__none__" ? "" : sid,
-      categoryLabel: escapeHtml(categoryLabel),
-      description: escapeHtml(work.description || "").replace(/\n/g, "<br>"),
+      metaBlock: renderMetaBlock({ categoryLabel, client: work.client, year: work.year }),
+      descriptionBlock: renderDescriptionBlock(work.description),
       videoBlock: renderVideoBlock(work.videoUrl),
-      galleryHtml,
+      galleryBlock: renderGalleryBlock(galleryHtml),
       relatedHtml: renderRelated(related),
-      prevLink: renderPagerLink(prevWork, "前の案件", "work-pager__link--prev"),
-      nextLink: renderPagerLink(nextWork, "次の案件", "work-pager__link--next"),
+      pagerBlock: renderPagerBlock(prevLink, nextLink),
       ogDescription: escapeHtml(excerpt(work.description || "", 100)),
       ogImage,
     });
@@ -259,10 +316,24 @@ async function buildWorksDetail(works, serviceMap, template) {
   }
 }
 
+// エンドポイントが未作成（404）の場合は0件として扱い、ビルドを止めない。
+// 「services/worksが0件なら実績への導線を出さない」という仕様と地続きの挙動にするため。
+async function fetchContentsOrEmpty(endpoint, options) {
+  try {
+    return await fetchAllContents(endpoint, options);
+  } catch (err) {
+    if (String(err.message).includes("404")) {
+      console.warn(`[build-works] "${endpoint}" エンドポイントが見つかりません（未作成の可能性）。0件として扱います。`);
+      return [];
+    }
+    throw err;
+  }
+}
+
 export async function buildWorks() {
   console.log("[build-works] microCMSからservices/worksを取得しています…");
-  const services = await fetchAllContents("services", { orders: "order" });
-  const works = await fetchAllContents("works", { orders: "order" });
+  const services = await fetchContentsOrEmpty("services", { orders: "order" });
+  const works = await fetchContentsOrEmpty("works", { orders: "order" });
   console.log(`[build-works] services: ${services.length}件 / works: ${works.length}件`);
 
   const serviceMap = new Map(services.map((s) => [s.id, s]));
@@ -272,6 +343,9 @@ export async function buildWorks() {
 
   const detailTemplate = await readFile(path.join(ROOT, "templates", "works-detail.html"), "utf-8");
   await buildWorksDetail(works, serviceMap, detailTemplate);
+
+  // トップページ・ニュース・実績の全ページを対象に、「実績」ナビの表示/非表示を統一する。
+  await patchWorksNavEverywhere(works);
 
   console.log("[build-works] 完了しました。");
 }

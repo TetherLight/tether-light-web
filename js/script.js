@@ -58,7 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 4000);
   });
 
-  // 表示範囲に入ってから1秒待ち、ゆっくり不透明になる表示（事業内容・ニュース・会社概要）
+  // 表示範囲に入ってから少し待ち、不透明になる表示（事業内容・ニュース・会社概要）
   // セクションごとにひとつのブロックとして表示する。
   const revealEls = document.querySelectorAll(".scroll-reveal");
   const revealObserver = new IntersectionObserver(
@@ -67,7 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (entry.isIntersecting) {
           setTimeout(() => {
             entry.target.classList.add("is-visible");
-          }, 1000);
+          }, 200);
           revealObserver.unobserve(entry.target);
         }
       });

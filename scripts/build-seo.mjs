@@ -50,8 +50,8 @@ function renderOrganizationJsonLd() {
 const PAGES = [
   {
     file: "index.html",
-    // トップだけは社名を先頭に置く
-    fullTitle: `${SITE_NAME} | 新潟の写真・動画制作`,
+    // トップだけは社名を先頭に置き、社名検索に当たるよう読み仮名も併記する
+    fullTitle: `${SITE_NAME}（テザーライト）| 新潟の写真・動画制作`,
     description:
       "新潟を拠点に、写真・動画の撮影とSNSメディアの企画・運営を行う株式会社Tether Light（テザーライト）です。商品撮影、イベント撮影、企業PR動画、SNSショート動画まで、企画から編集までワンストップで対応します。",
     extraHead: renderOrganizationJsonLd(),

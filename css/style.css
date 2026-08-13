@@ -452,11 +452,17 @@ ul {
   font-weight: 400;
   letter-spacing: 0.01em;
   line-height: 1.15;
-  margin-bottom: 44px;
+  /* 手書きフォントは描画範囲が行ボックスより上下に大きく、そのままクリップすると
+     文字の上下が切れる。clip-path の負の値は Safari で無効になるため、
+     パディングでボックス自体を広げて逃がす。
+     見た目の位置が変わらないよう、広げた分は margin で打ち消している。 */
+  padding-top: 0.25em;
+  padding-bottom: 0.25em;
+  margin-top: -0.25em;
+  margin-bottom: calc(44px - 0.25em);
   opacity: 0;
-  /* 手書きフォントの描画範囲は行ボックスより上下に大きいため、
-     上下のクリップを外側に逃がして文字の切れを防ぐ（左右方向だけを animate する）。 */
-  clip-path: inset(-30% 100% -30% 0);
+  -webkit-clip-path: inset(0 100% 0 0);
+  clip-path: inset(0 100% 0 0);
   /* 他のテキスト（英字キャッチ・ロゴ・説明文）が 1.1s かけて出そろってから描き始める */
   animation: tagline-reveal 1s 1.3s ease-out forwards;
 }
@@ -464,11 +470,13 @@ ul {
 @keyframes tagline-reveal {
   from {
     opacity: 0;
-    clip-path: inset(-30% 100% -30% 0);
+    -webkit-clip-path: inset(0 100% 0 0);
+    clip-path: inset(0 100% 0 0);
   }
   to {
     opacity: 1;
-    clip-path: inset(-30% 0% -30% 0);
+    -webkit-clip-path: inset(0 0 0 0);
+    clip-path: inset(0 0 0 0);
   }
 }
 
@@ -476,6 +484,7 @@ ul {
   .hero__tagline {
     animation: none;
     opacity: 1;
+    -webkit-clip-path: none;
     clip-path: none;
   }
 }

@@ -20,7 +20,9 @@ function renderOrganizationJsonLd() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: SITE_NAME,
-    alternateName: "Tether Light",
+    legalName: SITE_NAME,
+    // 日本語表記でも社名を引き当てられるよう、読み仮名を含む別名を登録する
+    alternateName: ["Tether Light", "テザーライト", "株式会社テザーライト"],
     url: `${SITE_URL}/`,
     logo: `${SITE_URL}/images/logo-icon-blue.png`,
     foundingDate: "2024-05",
@@ -51,14 +53,14 @@ const PAGES = [
     // トップだけは社名を先頭に置く
     fullTitle: `${SITE_NAME} | 新潟の写真・動画制作`,
     description:
-      "新潟を拠点に、写真・動画の撮影とSNSメディアの企画・運営を行う株式会社Tether Lightです。商品撮影、イベント撮影、企業PR動画、SNSショート動画まで、企画から編集までワンストップで対応します。",
+      "新潟を拠点に、写真・動画の撮影とSNSメディアの企画・運営を行う株式会社Tether Light（テザーライト）です。商品撮影、イベント撮影、企業PR動画、SNSショート動画まで、企画から編集までワンストップで対応します。",
     extraHead: renderOrganizationJsonLd(),
   },
   {
     file: "contact.html",
     title: "お問い合わせ",
     description:
-      "株式会社Tether Lightへのお問い合わせフォームです。新潟での撮影のご依頼、SNSメディアの企画・運営のご相談など、些細なことでもお気軽にお問い合わせください。",
+      "株式会社Tether Light（テザーライト）へのお問い合わせフォームです。新潟での撮影のご依頼、SNSメディアの企画・運営のご相談など、些細なことでもお気軽にお問い合わせください。",
   },
   {
     file: "thanks.html",

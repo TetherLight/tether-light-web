@@ -47,8 +47,10 @@ async function prepareDist() {
   for (const name of ["css", "js", "images", "fonts"]) {
     await cp(path.join(ROOT, name), path.join(DIST, name), { recursive: true });
   }
-  // favicon.ico はブラウザがサイトルート直下を既定で要求するため、ルートに置く
-  for (const name of ["index.html", "contact.html", "thanks.html", "favicon.ico"]) {
+  // favicon.ico はブラウザがサイトルート直下を既定で要求するため、ルートに置く。
+  // CNAME は GitHub Actions でのデプロイ時にカスタムドメインの設定が
+  // 解除されないよう、成果物に含める必要がある。
+  for (const name of ["index.html", "contact.html", "thanks.html", "favicon.ico", "CNAME"]) {
     await cp(path.join(ROOT, name), path.join(DIST, name));
   }
 }

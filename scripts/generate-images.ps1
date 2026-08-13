@@ -78,6 +78,53 @@ Save-SquareIcon -SourcePath $logoPath -OutPath (Join-Path $faviconDir "apple-tou
 
 # ---- OGP共通画像（1200x630）----
 # ブランドカラーの背景に、白のテキストロゴを中央配置した簡易版。
+# ---- favicon.ico ----
+# ブラウザはlinkタグとは別に、サイトルートの /favicon.ico を既定で要求する。
+# System.Drawing には ICO エンコーダが無いため、32x32 のBMP（DIB）を含む
+# ICOコンテナを手作業で組み立てる。
+Write-Output "favicon.ico を生成しています…"
+
+$icoSize = 32
+$icoSrc  = [System.Drawing.Image]::FromFile((Join-Path $faviconDir "favicon-32.png"))
+$icoBmp  = New-Object System.Drawing.Bitmap($icoSize, $icoSize, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+$icoG    = [System.Drawing.Graphics]::FromImage($icoBmp)
+$icoG.Clear([System.Drawing.Color]::Transparent)
+$icoG.DrawImage($icoSrc, 0, 0, $icoSize, $icoSize)
+$icoG.Dispose(); $icoSrc.Dispose()
+
+$stream = New-Object System.IO.MemoryStream
+$w      = New-Object System.IO.BinaryWriter($stream)
+
+$xorSize  = $icoSize * $icoSize * 4          # 32bpp のピクセルデータ
+$maskSize = $icoSize * 4                     # 1bpp のANDマスク（1行4バイト）
+$dibSize  = 40 + $xorSize + $maskSize
+
+# ICONDIR
+$w.Write([UInt16]0); $w.Write([UInt16]1); $w.Write([UInt16]1)
+# ICONDIRENTRY
+$w.Write([Byte]$icoSize); $w.Write([Byte]$icoSize); $w.Write([Byte]0); $w.Write([Byte]0)
+$w.Write([UInt16]1); $w.Write([UInt16]32)
+$w.Write([UInt32]$dibSize); $w.Write([UInt32]22)
+# BITMAPINFOHEADER（高さはXOR+ANDの2枚分を指定する決まり）
+$w.Write([UInt32]40); $w.Write([Int32]$icoSize); $w.Write([Int32]($icoSize * 2))
+$w.Write([UInt16]1); $w.Write([UInt16]32); $w.Write([UInt32]0)
+$w.Write([UInt32]$xorSize); $w.Write([Int32]0); $w.Write([Int32]0)
+$w.Write([UInt32]0); $w.Write([UInt32]0)
+# ピクセルデータ（BGRA・下から上へ）
+for ($y = $icoSize - 1; $y -ge 0; $y--) {
+    for ($x = 0; $x -lt $icoSize; $x++) {
+        $c = $icoBmp.GetPixel($x, $y)
+        $w.Write([Byte]$c.B); $w.Write([Byte]$c.G); $w.Write([Byte]$c.R); $w.Write([Byte]$c.A)
+    }
+}
+# ANDマスク（アルファ値で透過を表現するため、全て0で埋める）
+$w.Write((New-Object Byte[] $maskSize))
+
+$w.Flush()
+[System.IO.File]::WriteAllBytes((Join-Path $root "favicon.ico"), $stream.ToArray())
+$w.Dispose(); $stream.Dispose(); $icoBmp.Dispose()
+Write-Output "  favicon.ico  (32x32)"
+
 Write-Output "OGP画像を生成しています…"
 
 $ogW = 1200; $ogH = 630

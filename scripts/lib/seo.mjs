@@ -43,8 +43,9 @@ export function buildDescription(source, fallback = "") {
  * ファビコン関連のlinkタグ。全ページ共通。
  * サイトルート基準の絶対パスにして、階層の違うページでも同じ文字列を使えるようにする。
  */
-const FAVICON_TAGS = `<link rel="icon" href="/images/favicon/favicon-32.png" sizes="32x32">
-<link rel="icon" href="/images/favicon/icon-192.png" sizes="192x192">
+const FAVICON_TAGS = `<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/images/favicon/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="/images/favicon/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/images/favicon/apple-touch-icon.png">`;
 
 /**

@@ -47,7 +47,8 @@ async function prepareDist() {
   for (const name of ["css", "js", "images", "fonts"]) {
     await cp(path.join(ROOT, name), path.join(DIST, name), { recursive: true });
   }
-  for (const name of ["index.html", "contact.html", "thanks.html"]) {
+  // favicon.ico はブラウザがサイトルート直下を既定で要求するため、ルートに置く
+  for (const name of ["index.html", "contact.html", "thanks.html", "favicon.ico"]) {
     await cp(path.join(ROOT, name), path.join(DIST, name));
   }
 }

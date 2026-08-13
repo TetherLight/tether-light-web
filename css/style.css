@@ -480,12 +480,23 @@ ul {
   }
 }
 
+/* 動きを減らす設定では、左から現れる演出は使わない。
+   ただし完全に無効化すると見出しだけが突然現れて他のテキストと揃わないため、
+   他と同じく不透明度だけを上げるアニメーションに差し替える。 */
 @media (prefers-reduced-motion: reduce) {
   .hero__tagline {
-    animation: none;
-    opacity: 1;
     -webkit-clip-path: none;
     clip-path: none;
+    animation: tagline-fade 1s 1.3s ease-out forwards;
+  }
+}
+
+@keyframes tagline-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 

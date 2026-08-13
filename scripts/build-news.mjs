@@ -14,8 +14,15 @@ import { fileURLToPath } from "node:url";
 
 import { fetchAllContents, getSiteUrl } from "./lib/microcms.mjs";
 import { render } from "./lib/render.mjs";
-import { excerpt, escapeHtml } from "./lib/html.mjs";
+import { escapeHtml } from "./lib/html.mjs";
 import { cropImage, resizeImage } from "./lib/image.mjs";
+import {
+  DEFAULT_OG_IMAGE,
+  SITE_NAME,
+  absoluteUrl,
+  buildDescription,
+  renderHead,
+} from "./lib/seo.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -89,8 +96,16 @@ async function buildListPages(articles, template) {
         ? pageItems.map((a, i) => renderNewsItem(a, "", page === 1 && i === 0)).join("\n")
         : `        <p class="form-hint" style="padding: 24px 4px;">現在、公開中のニュースはありません。</p>`;
 
+    const relPath = page === 1 ? "news/index.html" : `news/page/${page}.html`;
+    const pageLabel = totalPages > 1 ? `ニュース一覧（${page}/${totalPages}）` : "ニュース一覧";
+
     const html = render(template, {
-      pageTitle: totalPages > 1 ? `ニュース一覧（${page}/${totalPages}）` : "ニュース一覧",
+      head: renderHead({
+        title: pageLabel,
+        description:
+          "株式会社Tether Lightからのお知らせ一覧です。新潟での撮影実績、SNSメディア運営に関する最新情報をお届けします。",
+        path: relPath,
+      }),
       items: itemsHtml,
       pagination: renderPagination(page, totalPages),
     });
@@ -105,10 +120,15 @@ async function buildListPages(articles, template) {
 
 async function buildDetailPages(articles, template) {
   for (const article of articles) {
-    const ogImageObj = resizeImage(article.thumbnail, 1200);
-    const ogImage = ogImageObj ? ogImageObj.url : `${SITE_URL}/images/logo-icon-blue.png`;
-    const ogUrl = `${SITE_URL}/news/${article.id}.html`;
+    // OGP用は 1200x630 に切り出す。サムネイル未設定なら共通のOGP画像を使う。
+    const ogImage = cropImage(article.thumbnail, 1200, 630) || DEFAULT_OG_IMAGE;
+    const relPath = `news/${article.id}.html`;
+    const ogUrl = absoluteUrl(relPath);
     const detailImage = resizeImage(article.thumbnail, 1200);
+    const description = buildDescription(
+      article.body,
+      `${article.title}｜株式会社Tether Lightからのお知らせです。`
+    );
 
     const thumbnailBlock = detailImage
       ? `    <img src="${detailImage.url}" alt="${escapeHtml(article.title)}" class="article__thumb" width="${detailImage.width}" height="${detailImage.height}">`
@@ -121,28 +141,30 @@ async function buildDetailPages(articles, template) {
       image: [ogImage],
       datePublished: article.publishDate,
       dateModified: article.updatedAt || article.publishDate,
-      author: { "@type": "Organization", name: "Tether Light" },
+      author: { "@type": "Organization", name: SITE_NAME },
       publisher: {
         "@type": "Organization",
-        name: "Tether Light",
+        name: SITE_NAME,
         logo: { "@type": "ImageObject", url: `${SITE_URL}/images/logo-icon-blue.png` },
       },
       mainEntityOfPage: { "@type": "WebPage", "@id": ogUrl },
     });
 
     const html = render(template, {
-      pageTitle: article.title,
+      head: renderHead({
+        title: article.title,
+        description,
+        path: relPath,
+        ogType: "article",
+        ogImage,
+        extraHead: `<script type="application/ld+json">\n${jsonLd}\n</script>`,
+      }),
       title: escapeHtml(article.title),
       category: escapeHtml(article.category || ""),
       dateFormatted: formatDate(article.publishDate),
       dateISO: article.publishDate,
       thumbnailBlock,
       bodyHtml: article.body || "",
-      ogTitle: escapeHtml(article.title),
-      ogDescription: escapeHtml(excerpt(article.body || "", 100)),
-      ogImage,
-      ogUrl,
-      jsonLd,
     });
 
     await writeFile(path.join(DIST, "news", `${article.id}.html`), html, "utf-8");
@@ -190,6 +212,11 @@ export async function buildNews() {
   await patchTopPage(articles);
 
   console.log("[build-news] 完了しました。");
+
+  // sitemap.xml の lastmod に使う更新日を返す
+  return new Map(
+    articles.map((a) => [`news/${a.id}.html`, String(a.updatedAt || a.publishDate).slice(0, 10)])
+  );
 }
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);

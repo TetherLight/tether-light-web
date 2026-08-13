@@ -19,9 +19,10 @@ import { fileURLToPath } from "node:url";
 
 import { fetchAllContents } from "./lib/microcms.mjs";
 import { render } from "./lib/render.mjs";
-import { escapeHtml, excerpt } from "./lib/html.mjs";
+import { escapeHtml } from "./lib/html.mjs";
 import { cropImage, resizeImage, youTubeEmbedUrl } from "./lib/image.mjs";
 import { replaceMarker, replaceKeyedMarkers } from "./lib/markers.mjs";
+import { DEFAULT_OG_IMAGE, buildDescription, renderHead } from "./lib/seo.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -168,7 +169,16 @@ async function buildWorksList(services, works) {
   const cardsHtml = works.map((w, i) => renderWorkCard(w, i === 0)).join("\n");
 
   const template = await readFile(path.join(ROOT, "templates", "works-list.html"), "utf-8");
-  const html = render(template, { tabsBlock, cardsHtml });
+  const html = render(template, {
+    head: renderHead({
+      title: "実績一覧",
+      description:
+        "株式会社Tether Lightの撮影実績一覧です。新潟での商品撮影、イベント撮影、企業PR動画、ビジネスポートレートなど、これまで手がけた案件をご紹介します。",
+      path: "works/index.html",
+    }),
+    tabsBlock,
+    cardsHtml,
+  });
 
   await mkdir(path.join(DIST, "works"), { recursive: true });
   await writeFile(path.join(DIST, "works", "index.html"), html, "utf-8");
@@ -292,14 +302,33 @@ async function buildWorksDetail(works, serviceMap, template) {
     const service = work.service && serviceMap.has(work.service.id) ? serviceMap.get(work.service.id) : null;
     const categoryLabel = service ? service.title : "";
 
-    const ogImageObj = resizeImage(work.thumbnail, 1200);
-    const ogImage = ogImageObj ? ogImageObj.url : "";
+    // OGP用は 1200x630 に切り出す。サムネイル未設定なら共通のOGP画像を使う。
+    const ogImage = cropImage(work.thumbnail, 1200, 630) || DEFAULT_OG_IMAGE;
+    const relPath = `works/${work.id}.html`;
+
+    // 案件の説明文が未入力でも description が空にならないよう、
+    // カテゴリ・年・クライアントから組み立てた文にフォールバックする。
+    const fallbackParts = [work.title];
+    if (categoryLabel) fallbackParts.push(`${categoryLabel}の実績`);
+    if (work.client) fallbackParts.push(work.client);
+    if (work.year) fallbackParts.push(`${work.year}年`);
+    const description = buildDescription(
+      work.description,
+      `${fallbackParts.join("｜")}｜株式会社Tether Lightの撮影実績です。`
+    );
 
     const prevLink = renderPagerLink(prevWork, "前の案件", "work-pager__link--prev");
     const nextLink = renderPagerLink(nextWork, "次の案件", "work-pager__link--next");
 
     const html = render(template, {
-      pageTitle: work.title,
+      head: renderHead({
+        // ご指定の「案件名 | 実績 | 株式会社Tether Light」の形式にする
+        title: `${work.title} | 実績`,
+        description,
+        path: relPath,
+        ogType: "article",
+        ogImage,
+      }),
       title: escapeHtml(work.title),
       serviceId: sid === "__none__" ? "" : sid,
       metaBlock: renderMetaBlock({ categoryLabel, client: work.client, year: work.year }),
@@ -308,8 +337,6 @@ async function buildWorksDetail(works, serviceMap, template) {
       galleryBlock: renderGalleryBlock(galleryHtml),
       relatedHtml: renderRelated(related),
       pagerBlock: renderPagerBlock(prevLink, nextLink),
-      ogDescription: escapeHtml(excerpt(work.description || "", 100)),
-      ogImage,
     });
 
     await writeFile(path.join(DIST, "works", `${work.id}.html`), html, "utf-8");
@@ -348,6 +375,11 @@ export async function buildWorks() {
   await patchWorksNavEverywhere(works);
 
   console.log("[build-works] 完了しました。");
+
+  // sitemap.xml の lastmod に使う更新日を返す
+  return new Map(
+    works.map((w) => [`works/${w.id}.html`, String(w.updatedAt || w.publishedAt).slice(0, 10)])
+  );
 }
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);

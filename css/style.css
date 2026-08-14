@@ -38,6 +38,12 @@
   /* ヒーロー本文は白画面が引きはじめた直後から重ねて出す（切り替わりを滑らかにするため） */
   --hero-text-delay: 3.2s;
   --hero-tagline-delay: 3.9s;
+
+  /* 見出しが左から描かれる時間。オープニングのテキストロゴ（250pxを1秒＝250px/秒）と
+     線の走る速さを揃えたいが、見出しの方が横に長いぶん時間がかかる。
+     幅は clamp() で画面幅ごとに変わるため、下のブレークポイントで測り直している。
+     1280px幅で見出しは675px → 675 ÷ 250 = 2.7秒。 */
+  --tagline-duration: 2.7s;
 }
 
 * {
@@ -417,7 +423,9 @@ ul {
 }
 
 /* テキストロゴは左から右へ流れるように現れる。
-   アイコンが出はじめてから少し遅らせ、追いかける形にしている。 */
+   アイコンが出はじめてから少し遅らせ、追いかける形にしている。
+   ここで線が走る速さ（幅250pxを1秒 = 250px/秒）が、ヒーローの見出し
+   .hero__tagline の基準になっている。--tagline-duration を参照。 */
 .splash__text {
   width: clamp(170px, 21vw, 250px);
   height: auto;
@@ -545,7 +553,7 @@ ul {
   clip-path: inset(0 100% 0 0);
   /* オープニングが明け、他のテキスト（英字キャッチ・ロゴ・説明文）が
      出はじめてから描き始める */
-  animation: tagline-reveal 1s var(--hero-tagline-delay) ease-out forwards;
+  animation: tagline-reveal var(--tagline-duration) var(--hero-tagline-delay) ease-out forwards;
 }
 
 @keyframes tagline-reveal {
@@ -1644,6 +1652,12 @@ ul {
    ============================================ */
 
 @media (max-width: 860px) {
+  /* この幅では見出しが405px・テキストロゴが170px（＝170px/秒）になるため、
+     405 ÷ 170 で描画時間を測り直す。 */
+  :root {
+    --tagline-duration: 2.4s;
+  }
+
   /* 狭い画面では従来どおりコンテナと同じ左右余白に戻す */
   .hero__inner {
     padding-left: 24px;
@@ -1769,6 +1783,9 @@ ul {
 @media (max-width: 480px) {
   :root {
     --header-height: 64px;
+    /* 見出しが327pxまで縮む一方でテキストロゴは170pxのまま（下限に張り付く）ため、
+       327 ÷ 170 で測り直す。 */
+    --tagline-duration: 1.9s;
   }
 
   .container {

@@ -29,6 +29,15 @@
   --header-height: 76px;
 
   --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* オープニング（白背景にロゴ）と、その後に続くヒーローのテキスト表示のタイミング。
+     すべてページ読み込みからの経過時間で、ここを直せば全体の間合いが揃う。
+     ロゴが出そろうのが 1.7s → そのまま保持 → 3.0s から白画面が引いていく。 */
+  --splash-hold: 3s;
+  --splash-fade: 0.8s;
+  /* ヒーロー本文は白画面が引きはじめた直後から重ねて出す（切り替わりを滑らかにするため） */
+  --hero-text-delay: 3.2s;
+  --hero-tagline-delay: 3.9s;
 }
 
 * {
@@ -358,6 +367,73 @@ ul {
 }
 
 /* ============================================
+   オープニング（スプラッシュ）
+   ============================================ */
+
+/* 読み込み直後に白い画面でロゴを見せてから、ヒーローへ切り替える。
+   消えるところまでCSSアニメーションだけで完結させている（JSに依存すると、
+   スクリプトが失敗したときに白い画面がサイトを覆ったままになるため）。 */
+.splash {
+  position: fixed;
+  inset: 0;
+  /* ヘッダー(1000)・ライトボックス(2000)より前面に置く */
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-white);
+  animation: splash-out var(--splash-fade) var(--splash-hold) ease forwards;
+}
+
+@keyframes splash-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    /* 消えたあとに背後のリンクを覆い続けないようにする */
+    pointer-events: none;
+  }
+}
+
+/* アイコンを上、テキストロゴを下に縦並び */
+.splash__logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(18px, 2.5vw, 28px);
+}
+
+/* アイコンはゆっくり不透明度だけを上げる */
+.splash__icon {
+  width: clamp(52px, 7vw, 78px);
+  height: auto;
+  opacity: 0;
+  animation: splash-fade-in 1.3s 0.2s ease-out forwards;
+}
+
+@keyframes splash-fade-in {
+  to {
+    opacity: 1;
+  }
+}
+
+/* テキストロゴは左から右へ流れるように現れる。
+   アイコンが出はじめてから少し遅らせ、追いかける形にしている。 */
+.splash__text {
+  width: clamp(170px, 21vw, 250px);
+  height: auto;
+  -webkit-clip-path: inset(0 100% 0 0);
+  clip-path: inset(0 100% 0 0);
+  animation: splash-text-wipe 1s 0.7s ease-out forwards;
+}
+
+@keyframes splash-text-wipe {
+  to {
+    -webkit-clip-path: inset(0 0 0 0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* ============================================
    ヒーロー
    ============================================ */
 
@@ -372,10 +448,12 @@ ul {
 .hero__bg {
   position: absolute;
   inset: 0;
+  /* 写真の上に重ねる調光レイヤー。青みを持たせず、黒〜グレーの無彩色で暗くする。
+     不透明度は元の青系グラデーションと同じ値を保ち、写真の見え方（暗さ）は変えていない。 */
   background-image:
-    radial-gradient(circle at 15% 15%, rgba(70, 93, 170, 0.5), transparent 45%),
-    radial-gradient(circle at 90% 85%, rgba(70, 93, 170, 0.4), transparent 55%),
-    linear-gradient(160deg, rgba(5, 6, 11, 0.65) 0%, rgba(18, 22, 43, 0.6) 45%, rgba(38, 52, 101, 0.55) 80%, rgba(100, 156, 211, 0.5) 130%),
+    radial-gradient(circle at 15% 15%, rgba(0, 0, 0, 0.5), transparent 45%),
+    radial-gradient(circle at 90% 85%, rgba(0, 0, 0, 0.4), transparent 55%),
+    linear-gradient(160deg, rgba(5, 6, 11, 0.65) 0%, rgba(26, 27, 36, 0.6) 45%, rgba(45, 46, 52, 0.55) 80%, rgba(95, 95, 100, 0.5) 130%),
     url("../images/hero-photo.jpg");
   background-size: auto, auto, auto, cover;
   background-position: center, center, center, center;
@@ -420,12 +498,14 @@ ul {
 }
 
 /* ヒーロー内のテキストは上下の動きをつけず、ゆっくり不透明度だけを上げて表示する。
-   （他セクションの [data-animate] は従来どおり下から浮かび上がる） */
+   （他セクションの [data-animate] は従来どおり下から浮かび上がる）
+   is-visible は読み込み直後に付くため、オープニングが明けるまでは
+   transition-delay で待たせている。 */
 .hero__eyebrow[data-animate],
 .hero__brand[data-animate],
 .hero__lead[data-animate] {
   transform: none;
-  transition: opacity 1.1s ease;
+  transition: opacity 1.1s var(--hero-text-delay) ease;
 }
 
 .hero__eyebrow[data-animate].is-visible,
@@ -463,8 +543,9 @@ ul {
   opacity: 0;
   -webkit-clip-path: inset(0 100% 0 0);
   clip-path: inset(0 100% 0 0);
-  /* 他のテキスト（英字キャッチ・ロゴ・説明文）が 1.1s かけて出そろってから描き始める */
-  animation: tagline-reveal 1s 1.3s ease-out forwards;
+  /* オープニングが明け、他のテキスト（英字キャッチ・ロゴ・説明文）が
+     出はじめてから描き始める */
+  animation: tagline-reveal 1s var(--hero-tagline-delay) ease-out forwards;
 }
 
 @keyframes tagline-reveal {
@@ -487,7 +568,28 @@ ul {
   .hero__tagline {
     -webkit-clip-path: none;
     clip-path: none;
-    animation: tagline-fade 1s 1.3s ease-out forwards;
+    animation: tagline-fade 1s var(--hero-tagline-delay) ease-out forwards;
+  }
+
+  /* オープニングも短くして、本編を待たせない */
+  :root {
+    --splash-hold: 0.5s;
+    --splash-fade: 0.4s;
+    --hero-text-delay: 0.6s;
+    --hero-tagline-delay: 0.9s;
+  }
+
+  .splash__icon {
+    animation-duration: 0.4s;
+    animation-delay: 0s;
+  }
+
+  /* テキストロゴも、左から流れる演出はやめて不透明度だけを上げる */
+  .splash__text {
+    -webkit-clip-path: none;
+    clip-path: none;
+    opacity: 0;
+    animation: splash-fade-in 0.4s 0s ease-out forwards;
   }
 }
 

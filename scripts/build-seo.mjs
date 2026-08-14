@@ -35,7 +35,7 @@ function renderOrganizationJsonLd() {
       streetAddress: "本町通7番町1098-1 WorkWith本町",
     },
     // 構造化データには計測用パラメータを除いた正規URLを使う
-    sameAs: ["https://www.instagram.com/camerasekai"],
+    sameAs: ["https://www.instagram.com/came_shika"],
     contactPoint: {
       "@type": "ContactPoint",
       contactType: "customer support",

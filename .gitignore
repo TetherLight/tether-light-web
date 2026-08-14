@@ -9,6 +9,9 @@ secrets.json
 # OS生成ファイル
 .DS_Store
 Thumbs.db
+# macOSがexFATのUSB/外付けドライブ上に作る付随ファイル。
+# Windows側では ._index.html のような実体のあるファイルとして見えてしまう。
+._*
 
 # 依存パッケージ（ビルドスクリプトはNode標準機能のみで動作し、通常は不要）
 node_modules/

@@ -48,13 +48,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const slides = Array.from(visual.querySelectorAll(".business-item__slide"));
     if (slides.length < 2) return;
 
+    // 2枚目以降は data-src で待機しているので、表示する前に読み込む。
+    // 常に1枚先まで用意しておき、切り替わった瞬間に空白にならないようにする。
+    const load = (index) => {
+      const slide = slides[index];
+      if (slide && slide.dataset.src) {
+        slide.src = slide.dataset.src;
+        delete slide.dataset.src;
+      }
+    };
+
     let current = slides.findIndex((slide) => slide.classList.contains("is-active"));
     if (current === -1) current = 0;
+    load((current + 1) % slides.length);
 
     setInterval(() => {
       slides[current].classList.remove("is-active");
       current = (current + 1) % slides.length;
       slides[current].classList.add("is-active");
+      load((current + 1) % slides.length);
     }, 4000);
   });
 

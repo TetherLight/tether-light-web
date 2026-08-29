@@ -27,7 +27,6 @@ import { DEFAULT_OG_IMAGE, buildDescription, renderHead } from "./lib/seo.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const DIST = path.join(ROOT, "dist");
-const SLIDESHOW_MAX_PHOTOS = 6;
 
 // ---- 事業内容セクション（トップページ）の差し込み ----
 
@@ -42,13 +41,17 @@ function shuffle(array) {
 }
 
 function renderSlidesInner(worksForService) {
-  const photos = shuffle(worksForService.filter((w) => w.thumbnail)).slice(0, SLIDESHOW_MAX_PHOTOS);
+  const photos = shuffle(worksForService.filter((w) => w.thumbnail));
   if (photos.length === 0) return null;
 
   return photos
     .map((w, i) => {
       const thumb = cropImage(w.thumbnail, 800, 600);
-      return `              <img src="${thumb}" alt="" class="business-item__slide${i === 0 ? " is-active" : ""}" ${i === 0 ? "" : 'loading="lazy"'}>`;
+      // 1枚目だけ最初から読み込み、2枚目以降は data-src で待機させる。
+      // 全枚数を一度に読み込むとトップページが重くなるため、
+      // 表示が近づいたものだけを js/script.js が順次読み込む。
+      const source = i === 0 ? `src="${thumb}"` : `data-src="${thumb}"`;
+      return `              <img ${source} alt="" class="business-item__slide${i === 0 ? " is-active" : ""}">`;
     })
     .join("\n");
 }

@@ -27,12 +27,15 @@ export function resizeImage(image, targetWidth) {
  *
  * 既定の中央クロップだと、縦構図の写真を横長に切り出したときに
  * 人物の顔が見切れてしまう。microCMSの画像APIはimgixベースで
- * 顔検出に対応しているため、顔 → 情報量の多い領域 の順で位置を決める。
- * 顔が写っていない写真では entropy が使われ、それも判定できなければ中央になる。
+ * 顔検出に対応しているため、顔があればそこを基準に切り出す。
+ *
+ * entropy（情報量の多い領域）は併用しない。主役ではなく単に情報量の多い部分を
+ * 選んでしまい、料理写真などで被写体が枠から外れることがあるため。
+ * 顔が検出できない写真は中央基準に戻る。
  */
 export function cropImage(image, width, height) {
   if (!image || !image.url) return null;
-  return `${image.url}?w=${width}&h=${height}&fit=crop&crop=faces,entropy`;
+  return `${image.url}?w=${width}&h=${height}&fit=crop&crop=faces`;
 }
 
 /**

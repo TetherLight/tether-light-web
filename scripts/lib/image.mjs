@@ -24,10 +24,15 @@ export function resizeImage(image, targetWidth) {
 
 /**
  * 一覧サムネイル用に、指定の幅・高さでクロップしたURLを返す。
+ *
+ * 既定の中央クロップだと、縦構図の写真を横長に切り出したときに
+ * 人物の顔が見切れてしまう。microCMSの画像APIはimgixベースで
+ * 顔検出に対応しているため、顔 → 情報量の多い領域 の順で位置を決める。
+ * 顔が写っていない写真では entropy が使われ、それも判定できなければ中央になる。
  */
 export function cropImage(image, width, height) {
   if (!image || !image.url) return null;
-  return `${image.url}?w=${width}&h=${height}&fit=crop`;
+  return `${image.url}?w=${width}&h=${height}&fit=crop&crop=faces,entropy`;
 }
 
 /**
